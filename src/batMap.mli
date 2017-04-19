@@ -102,6 +102,10 @@ sig
   (** [find x m] returns the current binding of [x] in [m],
       or raises [Not_found] if no such binding exists. *)
 
+  val find_default: 'a -> key -> 'a t -> 'a
+  (** [find_default d x m] returns the current binding of [x] in [m],
+      or the default value [d] if no such binding exists. *)
+
   val remove: key -> 'a t -> 'a t
   (** [remove x m] returns a map containing the same bindings as
       [m], except for [x] which is unbound in the returned map. *)
@@ -363,6 +367,15 @@ module Make (Ord : BatInterfaces.OrderedType) : S with type key = Ord.t
     given a totally ordered type.
 *)
 
+(** {6 Common instantiations} **)
+
+module Int : S with type key = int
+module Int32 : S with type key = int32
+module Int64 : S with type key = int64
+module Nativeint : S with type key = nativeint
+module Float : S with type key = float
+module Char : S with type key = char
+module String : S with type key = string
 
 (** {4 Polymorphic maps}
 
@@ -405,6 +418,10 @@ val update: 'a -> 'a -> 'b -> ('a, 'b) t -> ('a, 'b) t
 val find : 'a -> ('a, 'b) t -> 'b
 (** [find x m] returns the current binding of [x] in [m],
     or raises [Not_found] if no such binding exists. *)
+
+val find_default : 'b -> 'a -> ('a, 'b) t -> 'b
+(** [find_default d x m] returns the current binding of [x] in [m],
+     or the default value [d] if no such binding exists. *)
 
 val remove : 'a -> ('a, 'b) t -> ('a, 'b) t
 (** [remove x m] returns a map containing the same bindings as
@@ -702,6 +719,10 @@ module PMap : sig
   (** [find x m] returns the current binding of [x] in [m],
       or raises [Not_found] if no such binding exists. *)
 
+  val find_default : 'b -> 'a -> ('a, 'b) t -> 'b
+  (** [find_default d x m] returns the current binding of [x] in [m],
+      or the default value [d] if no such binding exists. *)
+
   val remove : 'a -> ('a, 'b) t -> ('a, 'b) t
   (** [remove x m] returns a map containing the same bindings as
       [m], except for [x] which is unbound in the returned map. *)
@@ -946,4 +967,3 @@ module PMap : sig
   val get_cmp : ('a, 'b) t -> ('a -> 'a -> int)
 
 end (* PMap module *)
-

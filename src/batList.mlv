@@ -532,11 +532,11 @@ let map2i f l1 l2 =
 (*$T map2i
   map2i (fun i x y -> i, x, y) [] [] = []
   map2i (fun i x y -> i, x, y) ['a'] ["b"] = [0, 'a', "b"]
-  map2i (fun i x y -> i, x, y) ['a', 'b', 'c'] ["d", "e", "f"] = \
+  map2i (fun i x y -> i, x, y) ['a'; 'b'; 'c'] ["d"; "e"; "f"] = \
     [(0, 'a', "d"); (1, 'b', "e"); (2, 'c', "f")]
   try ignore (map2i (fun i x y -> i, x, y) [] [0]); false \
     with Invalid_argument _ -> true
-  try ignore (map2i (fun i x y -> i, x, y) [1, 2, 3] ["4"]); false \
+  try ignore (map2i (fun i x y -> i, x, y) [1; 2; 3] ["4"]); false \
     with Invalid_argument _ -> true
 *)
 
@@ -563,8 +563,8 @@ let iter2i f l1 l2 =
 
 (*$T iter2i
   iter2i (fun _ _ _ -> assert false) [] []; true
-  let r = ref 0 in iter2i (fun i x y -> r := r + i * x + y) [1] [2]; !r = 2
-  let r = ref 0 in iter2i (fun i x y -> r := r + i * x + y) [1; 2] [3; 4]; !r = 9
+  let r = ref 0 in iter2i (fun i x y -> r := !r + i * x + y) [1] [2]; !r = 2
+  let r = ref 0 in iter2i (fun i x y -> r := !r + i * x + y) [1; 2] [3; 4]; !r = 9
 *)
 
 let rec fold_left2 f accum l1 l2 =
@@ -841,6 +841,49 @@ let range i dir j =
   try ignore(range 1 `Downto 2); true with Invalid_argument _ -> true
 *)
 
+let frange start direction stop n =
+  if n < 2 then invalid_arg (Printf.sprintf "List.frange: %d < 2" n);
+  let nb_steps = float_of_int (n - 1) in
+  match direction with
+  | `To ->
+    begin
+      if start >= stop then
+        invalid_arg (Printf.sprintf "List.frange %f `To %f" start stop);
+      let span = stop -. start in
+      let rec loop acc i =
+        let x = ((span *. float_of_int (i - 1)) /. nb_steps) +. start in
+        let acc' = x :: acc in
+        if i = 1 then acc'
+        else loop acc' (i - 1)
+      in
+      loop [] n
+    end
+  | `Downto ->
+    begin
+      if start <= stop then
+        invalid_arg (Printf.sprintf "List.frange %f `Downto %f" start stop);
+      let span = start -. stop in
+      let rec loop acc i =
+        let x = ((span *. float_of_int (i - 1)) /. nb_steps) +. stop in
+        let acc' = x :: acc in
+        if i = n then acc'
+        else loop acc' (i + 1)
+      in
+      loop [] 1
+    end
+
+(*$T frange
+  try ignore(frange 1. `To 2. 1); true with Invalid_argument _ -> true
+  try ignore(frange 2. `Downto 1. 1); true with Invalid_argument _ -> true
+  try ignore(frange 3. `To 1. 3); true with Invalid_argument _ -> true
+  try ignore(frange 1. `Downto 3. 3); true with Invalid_argument _ -> true
+  frange 1. `To 3. 3 = [1.; 2.; 3.]
+  frange 1. `To 2. 2 = [1.; 2.]
+  frange 3. `Downto 1. 3 = [3.; 2.; 1.]
+  frange 2. `Downto 1. 2 = [2.; 1.]
+  length (frange 0.123 `To 3.491 1000) = 1000
+*)
+
 let mapi f = function
   | [] -> []
   | h :: t ->
@@ -889,6 +932,25 @@ let fold_righti f l init =
   fold_righti (fun i x acc -> (i, x) :: acc) []       [] = []
   fold_righti (fun i x acc -> (i, x) :: acc) [0.]     [] = [(0, 0.)]
   fold_righti (fun i x acc -> (i, x) :: acc) [0.; 1.] [] = [(0, 0.); (1, 1.)]
+*)
+
+let fold_left_map f acc = function
+  | [] -> acc, []
+  | h :: t ->
+    let rec loop acc dst = function
+      | [] -> acc
+      | h :: t ->
+        let acc', t' = f acc h in
+        loop acc' (Acc.accum dst t') t
+    in
+    let acc', h' = f acc h in
+    let r = Acc.create h' in
+    let res = loop acc' r t in
+    res, inj r
+
+(*$T fold_left_map
+  fold_left_map (fun acc x -> assert false) 0 [] = (0, [])
+  fold_left_map (fun acc x -> acc ^ x, int_of_string x) "0" ["1"; "2"; "3"] = ("0123", [1; 2; 3])
 *)
 
 let first = hd
@@ -1224,7 +1286,48 @@ let reduce f = function [] -> invalid_arg "Empty List"
 let min l = reduce Pervasives.min l
 let max l = reduce Pervasives.max l
 let sum l = reduce (+) l
-let fsum l = reduce (+.) l
+
+let fsum l =
+  match l with
+  | [] -> invalid_arg "List.fsum: Empty List"
+  | x::xs ->
+    let acc = ref x in
+    let rem = ref xs in
+    let go = ref true in
+    while !go do
+      match !rem with
+      | [] -> go := false;
+      | x::xs ->
+        acc := !acc +. x;
+        rem := xs
+    done;
+    !acc
+(*$T fsum
+  try let _ = fsum [] in false with Invalid_argument _ -> true
+  fsum [1.;2.;3.] = 6.
+*)
+
+let favg l =
+  match l with
+  | [] -> invalid_arg "List.favg: Empty List"
+  | x::xs ->
+    let acc = ref x in
+    let len = ref 1 in
+    let rem = ref xs in
+    let go = ref true in
+    while !go do
+      match !rem with
+      | [] -> go := false;
+      | x::xs ->
+        acc := !acc +. x;
+        incr len;
+        rem := xs
+    done;
+    !acc /. float_of_int !len
+(*$T favg
+  try let _ = favg [] in false with Invalid_argument _ -> true
+  favg [1.;2.;3.] = 2.
+*)
 
 let kahan_sum li =
   (* This algorithm is written in a particularly untasteful imperative
@@ -1302,6 +1405,16 @@ let subset cmp l l' = for_all (fun x -> mem_cmp cmp x l') l
   subset Pervasives.compare [1;2;3] [1;2;3] = true
   subset Pervasives.compare [3;2;1] [1;2;3] = true
   subset Pervasives.compare [1;2] [1;2;3] = true
+*)
+
+let shuffle ?state l =
+  let arr = Array.of_list l in
+  BatInnerShuffle.array_shuffle ?state arr;
+  Array.to_list arr
+(*$T shuffle
+  let s = Random.State.make [|11|] in \
+  shuffle ~state:s [1;2;3;4;5;6;7;8;9] = [7; 2; 9; 5; 3; 6; 4; 1; 8]
+  shuffle [] = []
 *)
 
 module Exceptionless = struct

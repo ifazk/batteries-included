@@ -98,6 +98,18 @@ val at : 'a list -> int -> 'a
 val rev : 'a list -> 'a list
 (** List reversal. *)
 
+val shuffle : ?state:Random.State.t -> 'a list -> 'a list
+(** [shuffle ~state:rs l] randomly shuffles the elements of [l].
+    The optional random state [rs] allows to control the random
+    numbers being used during shuffling (for reproducibility).
+
+    Shuffling is implemented using the Fisher-Yates
+    algorithm on an array and works in O(n), where n is the number
+    of elements of [l].
+
+    @since 2.6.0
+ *)
+
 val append : 'a list -> 'a list -> 'a list
 (** Catenate two lists.  Same function as the infix operator [@].
     Tail-recursive O(length of the first argument).*)
@@ -134,6 +146,19 @@ val range : int -> [< `To | `Downto ] -> int -> int list
     @raise Invalid_argument in ([range i `To j]) if (i > j).
     @raise Invalid_argument in ([range i `Downto j]) if (i < j).
     @since 2.2.0 *)
+
+val frange : float -> [< `To | `Downto ] -> float -> int -> float list
+(** [frange start `To stop n] generates (without accumulating
+    floating point errors) [n] floats in the range [[start..stop]].
+    [n] must be >= 2.
+    At each step, floats in an increasing (resp. decreasing) range increase
+    (resp. decrease) by approximately (stop - start) / (n - 1).
+    @raise Invalid_argument in ([frange i _ j n]) if (n < 2).
+    @raise Invalid_argument in ([frange i `To j _]) if (i >= j).
+    @raise Invalid_argument in ([frange i `Downto j _]) if (i <= j).
+    Examples: [frange 1.0 `To 3.0 3] = [[1.0; 2.0; 3.0]].
+    [frange 3.0 `Downto 1.0 3] = [[3.0; 2.0; 1.0]].
+    @since 2.6.0 *)
 
 val init : int -> (int -> 'a) -> 'a list
 (** Similar to [Array.init], [init n f] returns the list containing
@@ -219,6 +244,23 @@ val reduce : ('a -> 'a -> 'a) -> 'a list -> 'a
 
     @raise Invalid_argument on empty list. *)
 
+val fold_left_map : ('a -> 'b -> 'a * 'c) -> 'a -> 'b list -> 'a * 'c list
+(** Combines [fold_left] and [map]. Tail-recursive.
+
+    More precisely :
+
+    {[
+    fold_left_map f acc [] = (acc, [])
+
+    fold_left_map f acc (x :: xs) =
+      let (acc', y) = f acc x in
+      let (res, ys) = fold_left_map acc' xs in
+      (res, y :: ys)
+    ]}
+
+    @since 2.6.0
+*)
+
 val max : 'a list -> 'a
 (** [max l] returns the largest value in [l] as judged by
     [Pervasives.compare] *)
@@ -235,6 +277,12 @@ val sum : int list -> int
 val fsum : float list -> float
 (** [fsum l] returns the sum of the floats of [l]
     @raise Invalid_argument on the empty list.
+ *)
+
+val favg : float list -> float
+(** [favg l] returns the average of the floats of [l]
+    @raise Invalid_argument on the empty list.
+    @since 2.6.0
  *)
 
 val kahan_sum : float list -> float

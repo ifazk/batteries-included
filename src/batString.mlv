@@ -433,6 +433,24 @@ let rchop ?(n = 1) s =
    try ignore (rchop ~n:(-1) "Weeble"); false with Invalid_argument _ -> true
 *)
 
+let chop ?(l = 1) ?(r = 1) s =
+  if l < 0 then
+    invalid_arg "chop: number of characters to chop on the left is negative";
+  if r < 0 then
+    invalid_arg "chop: number of characters to chop on the right is negative";
+  let slen = length s in
+  if slen < l + r then ""
+  else sub s l (slen - l - r)
+(*$T chop
+   chop "\"Weeble\"" = "Weeble"
+   chop "" = ""
+   chop ~l:2 ~r:3 "01234567" = "234"
+   chop ~l:1000 "Weeble" = ""
+   chop ~r:1000 "Weeble" = ""
+   try ignore (chop ~l:(-1) "Weeble"); false with Invalid_argument _ -> true
+   try ignore (chop ~r:(-1) "Weeble"); false with Invalid_argument _ -> true
+*)
+
 let of_int = string_of_int
 (*$T of_int
    of_int 56 = "56"
@@ -910,13 +928,13 @@ let numeric_compare s1 s2 =
 ##V<4.3##let lowercase_ascii s = map BatChar.lowercase_ascii s
 
 (*$T uppercase_ascii
-  equal ("five" |> of_string |> capitalize_ascii |> to_string) "FIVE"
-  equal ("école" |> of_string |> captialize_ascii |> to_string) "éCOLE"
+  equal ("five" |> uppercase_ascii) "FIVE"
+  equal ("école" |> uppercase_ascii) "éCOLE"
  *)
 
 (*$T lowercase_ascii
-  equal ("FIVE" |> of_string |> capitalize_ascii |> to_string) "five"
-  equal ("ÉCOLE" |> of_string |> captialize_ascii |> to_string) "École"
+  equal ("FIVE" |> lowercase_ascii) "five"
+  equal ("ÉCOLE" |> lowercase_ascii) "École"
  *)
 
 ##V<4.3##let map_first_char f s =
@@ -930,12 +948,12 @@ let numeric_compare s1 s2 =
 
 (*$T capitalize_ascii
   equal ("five" |> capitalize_ascii) "Five"
-  equal ("école" |> captialize_ascii) "école"
+  equal ("école" |> capitalize_ascii) "école"
  *)
 
 (*$T uncapitalize_ascii
-  equal ("Five" |> capitalize_ascii) "Five"
-  equal ("école" |> captialize_ascii) "école"
+  equal ("Five" |> uncapitalize_ascii) "five"
+  equal ("École" |> uncapitalize_ascii) "École"
  *)
 
 module NumString =
@@ -1108,6 +1126,7 @@ struct
   let exists        = exists
   let lchop         = lchop
   let rchop         = rchop
+  let chop          = chop
   let strip         = strip
   let uppercase     = uppercase
   let lowercase     = lowercase

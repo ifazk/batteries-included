@@ -175,6 +175,10 @@ module Concrete = struct
     try Some (find x cmp map)
     with Not_found -> None
 
+  let find_default def x cmp map =
+    try find x cmp map
+    with Not_found -> def
+
   let remove x cmp map =
     let rec loop = function
       | Node (l, k, v, r, _) ->
@@ -721,6 +725,7 @@ sig
   val add: key -> 'a -> 'a t -> 'a t
   val update: key -> key -> 'a -> 'a t -> 'a t
   val find: key -> 'a t -> 'a
+  val find_default: 'a -> key -> 'a t -> 'a
   val remove: key -> 'a t -> 'a t
   val modify: key -> ('a -> 'a) -> 'a t -> 'a t
   val modify_def: 'a -> key -> ('a -> 'a) -> 'a t -> 'a t
@@ -815,6 +820,7 @@ struct
   let keys t = Concrete.keys (impl_of_t t)
   let values t = Concrete.values (impl_of_t t)
   let update k1 k2 v2 t = t_of_impl (Concrete.update k1 k2 v2 Ord.compare (impl_of_t t))
+  let find_default d k t = Concrete.find_default d k Ord.compare (impl_of_t t)
 
   let of_enum e = t_of_impl (Concrete.of_enum Ord.compare e)
 
@@ -912,6 +918,13 @@ struct
 
 end
 
+module Int = Make (BatInt)
+module Int32 = Make (BatInt32)
+module Int64 = Make (BatInt64)
+module Nativeint = Make (BatNativeint)
+module Float = Make (BatFloat)
+module Char = Make (BatChar)
+module String = Make (BatString)
 
 (**
  * PMap - Polymorphic maps
@@ -935,6 +948,14 @@ let find x m = Concrete.find x Pervasives.compare m
   empty |> add 1 true |> add 2 false |> find 2 |> not
   empty |> add 2 'y' |> add 1 'x' |> find 1 = 'x'
   empty |> add 2 'y' |> add 1 'x' |> find 2 = 'y'
+*)
+
+let find_default def x m =
+  Concrete.find_default def x Pervasives.compare m
+
+(*$T find_default
+    find_default 3 4 (add 1 2 empty) = 3
+    find_default 3 1 (add 1 2 empty) = 2
 *)
 
 (*$T pop_min_binding
@@ -978,7 +999,7 @@ let at_rank_exn = Concrete.at_rank_exn
 (*$Q foldi
   (Q.list Q.small_int) (fun xs -> \
   let m = List.fold_left (fun acc x -> add x true acc) empty xs in \
-  foldi (fun x _y acc -> x :: acc) m [] |> List.rev = List.sort_unique Int.compare xs)
+  foldi (fun x _y acc -> x :: acc) m [] |> List.rev = List.sort_unique BatInt.compare xs)
 *)
 
 let enum = Concrete.enum
@@ -987,7 +1008,7 @@ let enum = Concrete.enum
   (Q.list Q.small_int) (fun xs -> \
   List.fold_left (fun acc x -> add x true acc) \
     empty xs |> keys |> List.of_enum \
-  = List.sort_unique Int.compare xs)
+  = List.sort_unique BatInt.compare xs)
 *)
 
 let backwards = Concrete.backwards
@@ -1097,7 +1118,7 @@ module PMap = struct (*$< PMap *)
   let get_cmp {cmp} = cmp
 
   (*$T get_cmp
-    get_cmp (create Int.compare) == Int.compare
+    get_cmp (create BatInt.compare) == BatInt.compare
   *)
 
   let empty = { cmp = Pervasives.compare; map = Concrete.empty }
@@ -1113,6 +1134,9 @@ module PMap = struct (*$< PMap *)
   let find x m =
     Concrete.find x m.cmp m.map
 
+  let find_default def x m =
+    Concrete.find_default def x m.cmp m.map
+
   (*$T add; find
     empty |> add 1 true |> add 2 false |> find 1
     empty |> add 1 true |> add 2 false |> find 2 |> not
@@ -1120,6 +1144,11 @@ module PMap = struct (*$< PMap *)
     create BatInt.compare |> add 1 true |> add 2 false |> find 2 |> not
     empty |> add 2 'y' |> add 1 'x' |> find 1 = 'x'
     empty |> add 2 'y' |> add 1 'x' |> find 2 = 'y'
+  *)
+
+  (*$T find_default
+    find_default 3 4 (add 1 2 empty) = 3
+    find_default 3 1 (add 1 2 empty) = 2
   *)
 
   (*$T update
@@ -1164,8 +1193,8 @@ module PMap = struct (*$< PMap *)
 
   (*$Q foldi
     (Q.list Q.small_int) (fun xs -> \
-    let m = List.fold_left (fun acc x -> add x true acc) (create Int.compare) xs in \
-    foldi (fun x _y acc -> x :: acc) m [] |> List.rev = List.sort_unique Int.compare xs)
+    let m = List.fold_left (fun acc x -> add x true acc) (create BatInt.compare) xs in \
+    foldi (fun x _y acc -> x :: acc) m [] |> List.rev = List.sort_unique BatInt.compare xs)
   *)
 
   let at_rank_exn i m =
@@ -1176,8 +1205,8 @@ module PMap = struct (*$< PMap *)
   (*$Q keys
     (Q.list Q.small_int) (fun xs -> \
     List.fold_left (fun acc x -> add x true acc) \
-    (create Int.compare) xs |> keys |> List.of_enum \
-    = List.sort_unique Int.compare xs)
+    (create BatInt.compare) xs |> keys |> List.of_enum \
+    = List.sort_unique BatInt.compare xs)
   *)
 
   let backwards t = Concrete.backwards t.map
@@ -1199,10 +1228,10 @@ module PMap = struct (*$< PMap *)
 
   let max_binding t = Concrete.max_binding t.map
   let min_binding t = Concrete.min_binding t.map
-  let pop_min_binding m = 
+  let pop_min_binding m =
     let mini, rest = Concrete.pop_min_binding m.map in
     (mini, { m with map = rest })
-  let pop_max_binding m = 
+  let pop_max_binding m =
     let maxi, rest = Concrete.pop_max_binding m.map in
     (maxi, { m with map = rest })
 
